@@ -1,26 +1,49 @@
-function calculateActivityScore(repo, commits) {
-  const stars = repo.stargazers_count || 0;
-  const forks = repo.forks_count || 0;
-  const issues = repo.open_issues_count || 0;
-  const commitCount = commits || 0;
-
-  const score = (commitCount * 3) + (stars * 2) + (forks * 2) + (issues * 1);
-  return Math.min(score, 1000);
+function normalize(value, max) {
+  if (!max) return 0;
+  return value / max;
 }
 
-function estimateComplexity(repo, languages) {
-  const langCount = Object.keys(languages || {}).length;
-  const hasPackageJson = repo.size > 500;
-  const sizeScore = Math.min(repo.size / 100, 50);
+function calculateActivityScore(data, maxValues) {
+  const commits = normalize(data.commits, maxValues.commits);
+  const stars = normalize(data.stars, maxValues.stars);
+  const forks = normalize(data.forks, maxValues.forks);
+  const contributors = normalize(data.contributors, maxValues.contributors);
 
-  return Math.round(sizeScore + (langCount * 10));
+  // simple weighted score based on activity signals
+  const score =
+    0.4 * commits +
+    0.3 * contributors +
+    0.2 * stars +
+    0.1 * forks;
+
+  return Number(score.toFixed(3));
 }
 
-function classifyDifficulty(activityScore, complexityScore) {
-  const total = activityScore + complexityScore;
-  if (total < 100) return 'Beginner';
-  if (total < 400) return 'Intermediate';
-  return 'Advanced';
+function estimateComplexity(data) {
+  const languageCount = data.languages?.length || 0;
+
+  // basic heuristic: more languages + contributors = more complexity
+  let complexity = languageCount * 0.5;
+
+  if (data.contributors > 5) {
+    complexity += 0.5;
+  }
+
+  if (data.hasDependencies) {
+    complexity += 0.5;
+  }
+
+  return Number(complexity.toFixed(2));
 }
 
-module.exports = { calculateActivityScore, estimateComplexity, classifyDifficulty };
+function classifyDifficulty(complexity) {
+  if (complexity < 1.5) return "Beginner";
+  if (complexity < 3) return "Intermediate";
+  return "Advanced";
+}
+
+module.exports = {
+  calculateActivityScore,
+  estimateComplexity,
+  classifyDifficulty,
+};
